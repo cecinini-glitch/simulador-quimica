@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Virtual: Titulación Conductométrica Interactiva</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
+        .card-custom { background-color: #1e293b; border-radius: 20px; border: 1px solid #334155; }
+        .panel-control { background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; }
+        .table-container { max-height: 220px; overflow-y: auto; border: 1px solid #334155; border-radius: 8px; }
+        .step-block { border-left: 4px solid #334155; padding-left: 15px; margin-bottom: 20px; padding-bottom: 10px; transition: all 0.3s ease; }
+        .step-active { border-left-color: #38bdf8; }
+        .step-disabled { opacity: 0.3; pointer-events: none; }
+        .feedback-step { font-size: 0.95rem; font-weight: 600; margin-top: 10px; padding: 10px; border-radius: 8px; display: none; }
+        .slider-label { font-size: 0.85rem; color: #94a3b8; font-weight: 600; }
+        .chart-wrapper { position: relative; height: 380px; width: 100%; }
+        .formula-block { display: none; }
+    </style>
+</head>
+<body class="py-4">
+
+<div class="container" style="max-width: 950px;">
+    <div class="card card-custom shadow-lg">
+        
+        <div class="card-header text-center p-4" style="background: linear-gradient(135deg, #0f172a, #1e3a8a); border-top-left-radius: 19px; border-top-right-radius: 19px; border-bottom: 2px solid #334155;">
+            <h3 class="mb-1 fw-bold" style="color: #38bdf8;">🔬 LABORATORIO VIRTUAL DE CONDUCTIMETRÍA</h3>
+            <p class="text-white fw-bold medium mb-1">Titulación Conductimétrica</p>
+        </div>
+
+        <div class="card-body p-4">
+            
+            <div id="bloque_etapa1" class="step-block step-active">
+                <h5 class="text-info fw-bold mb-2">1. Registro de Datos Experimentales</h5>
+                <p class="text-white-50 small mb-2">Con el botón, agregá el agente valorante (solución NH₃ 1,0115 N) sobre la alícuota de muestra que es de 100 mL (volumen inicial, V<sub>0</sub> = 100 mL). Al finalizar, recordá que debés solicitar la corrección matemática de los datos para eliminar el efecto de la dilución.</p>
+                
+                <div id="formula_dilucion" class="p-2 mb-3 rounded bg-dark border border-secondary text-center formula-block">
+                    <span class="text-white-50 small text-uppercase d-block mb-1">Ecuaciones de Corrección Aplicadas:</span>
+                    <div class="text-warning fw-bold style-0.95rem" style="font-family: monospace; letter-spacing: 0.5px;">
+                        Paso 1: F<sub>corr.</sub> = (V<sub>0</sub> + V<sub>titulante</sub>) / V<sub>0</sub> 
+                        <span class="text-white mx-2">|</span> 
+                        Paso 2: &kappa;<sub>corr.</sub> = &kappa; &middot; F<sub>corr.</sub>
+                    </div>
+                </div>
+                
+                <div class="row align-items-center text-center panel-control p-3 m-0">
+                    <div class="col-md-4 mb-3">
+                        <div class="fw-bold mb-2 p-2 rounded bg-secondary text-dark" id="vol_display" style="font-size: 1.1rem;">V_titulante: 0,0 mL</div>
+                        <div class="fw-bold p-2 rounded border border-warning text-warning" id="cond_display" style="font-size: 1.2rem; font-family: monospace;">&kappa;: 383 &mu;S/cm</div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" id="btn_add" onclick="agregarPunto()" class="btn btn-primary flex-grow-1 fw-bold">Agregar 1,0 mL de NH₃ 💧</button>
+                            <button type="button" id="btn_correct" onclick="corregirDatos()" class="btn btn-warning fw-bold text-dark d-none">Corregir por el efecto de la Dilución 📐</button>
+                            <button type="button" onclick="reiniciarTodo()" class="btn btn-outline-secondary">↺</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="table table-sm table-dark table-bordered m-0 align-middle" id="tabla_datos" style="font-size: 0.85rem;">
+                                <thead class="table-light text-dark sticky-top">
+                                    <tr><th>V_titulante (mL)</th><th>&kappa; (&mu;S/cm)</th><th>Factor (Fcorr.)</th><th>&kappa;_corr (&mu;S/cm)</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>0,0</td><td>383</td><td id="fco_0">—</td><td id="kcc_0" class="text-muted">—</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="f_step1" class="feedback-step alert-info text-dark"></div>
+            </div>
+
+            <div id="bloque_etapa2" class="step-block step-disabled">
+                <h5 class="text-info fw-bold mb-2">2. Configuración de Ejes del Gráfico</h5>
+                <div class="row g-2 panel-control p-3 m-0">
+                    <div class="col-md-5">
+                        <select id="select_x" class="form-select bg-dark text-white border-secondary small">
+                            <option value="">-- Seleccionar Eje X --</option>
+                            <option value="vol">Volumen de NH₃ adicionado (mL)</option>
+                            <option value="cond">Conductividad de la celda</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <select id="select_y" class="form-select bg-dark text-white border-secondary small">
+                            <option value="">-- Seleccionar Eje Y --</option>
+                            <option value="cm">Conductividad Medida  (&kappa;)</option>
+                            <option value="cc">Conductividad Corregida (&kappa;_corr.)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" onclick="validarEjes()" class="btn btn-info w-100 fw-bold">Graficar 📊</button>
+                    </div>
+                </div>
+                <div id="f_step2" class="feedback-step"></div>
+            </div>
+
+            <div id="bloque_etapa3" class="step-block step-disabled">
+                <h5 class="text-info fw-bold mb-2">3. Obtención del volumen de titulante gastado hasta el pto. de equivalencia</h5>
+                <p class="text-white-50 small mb-2">
+                    <strong>Instrucciones:</strong> Utilizá los controles deslizantes inferiores para ajustar la pendiente y la ordenada al origen de ambas rectas hasta alinearlas de la mejor manera posible con los puntos experimentales. El punto en donde las rectas se intersecan, define el punto de equivalencia. Observa a qué valor del eje x corresponde dicho punto y registrá el volumen de titulante gastado. 
+                </p>
+                <div class="row panel-control p-3 m-0 align-items-center mb-3">
+                    <div class="col-md-8 bg-white rounded p-2 mb-3 mb-md-0">
+                        <div class="chart-wrapper">
+                            <canvas id="graficoCanvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center px-2">
+                        <div class="p-3 rounded border border-secondary" style="background-color: #1e293b;">
+                            <div class="text-white-50 small fw-bold">Intersección de Rectas Hallada:</div>
+                            <div class="fw-bold text-warning h4 my-2" id="interseccion_display" style="font-family: monospace;">Ajustando rectas...</div>
+                            <span class="badge bg-secondary p-2 style-0.8rem">Objetivo: Alinear rectas a los datos</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row panel-control p-3 m-0 border border-secondary">
+                    <div class="col-md-6 border-end border-secondary pe-md-4">
+                        <h6 class="text-success fw-bold mb-3">Línea de Tendencia 1 (Primer Tramo)</h6>
+                        <div class="mb-2">
+                            <label for="slide_m1" class="slider-label d-flex justify-content-between">
+                                <span>Pendiente (m₁)</span><span id="val_m1" class="text-white">600.0</span>
+                            </label>
+                            <input type="range" id="slide_m1" min="500" max="900" step="1" value="600" class="form-range" oninput="actualizarRectas()">
+                        </div>
+                        <div class="mb-2">
+                            <label for="slide_b1" class="slider-label d-flex justify-content-between">
+                                <span>Ordenada al origen (b₁)</span><span id="val_b1" class="text-white">300</span>
+                            </label>
+                            <input type="range" id="slide_b1" min="0" max="600" step="5" value="300" class="form-range" oninput="actualizarRectas()">
+                        </div>
+                    </div>
+                    <div class="col-md-6 ps-md-4 mt-3 mt-md-0">
+                        <h6 class="text-danger fw-bold mb-3">Línea de Tendencia 2 (Segundo Tramo)</h6>
+                        <div class="mb-2">
+                            <label for="slide_m2" class="slider-label d-flex justify-content-between">
+                                <span>Pendiente (m₂)</span><span id="val_m2" class="text-white">50.0</span>
+                            </label>
+                            <input type="range" id="slide_m2" min="0" max="100" step="1" value="50" class="form-range" oninput="actualizarRectas()">
+                        </div>
+                        <div class="mb-2">
+                            <label for="slide_b2" class="slider-label d-flex justify-content-between">
+                                <span>Ordenada al origen (b₂)</span><span id="val_b2" class="text-white">6000</span>
+                            </label>
+                            <input type="range" id="slide_b2" min="5000" max="7000" step="5" value="6000" class="form-range" oninput="actualizarRectas()">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="f_step3" class="feedback-step alert-success text-dark"></div>
+            </div>
+
+            <div id="bloque_etapa4" class="step-block step-disabled">
+                <h5 class="text-info fw-bold mb-2">4. Cálculo de la concentración de la solución de ácido acético</h5>
+                <div class="row panel-control p-4 m-0 align-items-center" style="background-color: #0f172a; border: 2px solid #22d3ee;">
+                    <div class="col-md-7 mb-3 mb-md-0">
+                        
+                        <div id="formula_equivalencia" class="p-2 rounded bg-dark border border-secondary mb-3 text-center formula-block">
+                            <span class="text-info fw-bold h5 d-block m-0" style="font-family: monospace; letter-spacing: 1px;">N<sub>ácido</sub> &middot; V<sub>ácido</sub> = N<sub>base</sub> &middot; V<sub>base</sub></span>
+                        </div>
+                        
+                        <p class="text-light mb-0" style="font-size: 0.95rem; line-height: 1.6;">
+                            • Volumen de la alícuota analizada (<span class="text-warning fw-bold">V<sub>ácido</sub></span>): <strong>100,0 mL</strong><br>
+                            • Normalidad de la solución patrón (<span class="text-warning fw-bold">N<sub>base</sub></span>): <strong>1,0115 N</strong><br>
+                            • V<sub>base</sub> determinado en el gráfico (<span class="text-warning fw-bold">V<sub>base</sub></span>): <span id="V_titulantease_calc" class="badge bg-warning text-dark fw-bold px-2 py-1" style="font-size:0.95rem;">?</span>
+                        </p>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label text-white fw-bold small mb-1">Ingresá la Normalidad calculada (N<sub>ácido</sub>):</label>
+                        <div class="input-group mb-3">
+                            <input type="text" id="input_n" placeholder="" class="form-control text-center fw-bold text-dark bg-light" style="font-size: 1.15rem; border-radius: 6px 0 0 6px;">
+                            <span class="input-group-text bg-secondary text-white fw-bold" style="font-size: 1.05rem;">N</span>
+                        </div>
+                        <button onclick="verificarCalculo()" class="btn btn-success w-100 fw-bold p-2 shadow-sm" style="font-size: 1.05rem; background-color: #10b981; border:none;">Verificar Concentración ⚡</button>
+                    </div>
+                </div>
+                <div id="f_step4" class="feedback-step" style="font-size: 1.05rem;"></div>
+            </div>
+
+        </div>
+        <div class="card-footer text-center p-2 text-white-50 small" style="background-color: #0f172a;">
+            FCA - UNMdP - Química Analítica General - Guía Práctica Interactiva
+        </div>
+    </div>
+</div>
+
+<script>
+    var datosCrudos = [
+        { v: 0.0, cm: 383 },  { v: 1.0, cm: 824 },  { v: 2.0, cm: 1518 }, { v: 3.0, cm: 2230 },
+        { v: 4.0, cm: 2910 }, { v: 5.0, cm: 3580 }, { v: 6.0, cm: 4230 }, { v: 7.0, cm: 4860 },
+        { v: 8.0, cm: 5460 }, { v: 9.0, cm: 5960 }, { v: 10.0, cm: 5950 }, { v: 11.0, cm: 5920 },
+        { v: 12.0, cm: 5880 }, { v: 13.0, cm: 5840 }, { v: 14.0, cm: 5810 }
+    ];
+
+    var dataset = [{ v: 0.0, cm: 383, fco: 1.000, cc: 383 }];
+    var indice = 0;
+    var miGrafico = null;
+    var v_interseccion = 0;
+
+    function agregarPunto() {
+        if (indice < datosCrudos.length - 1) {
+            indice++;
+            var p = datosCrudos[indice];
+            dataset.push({ v: p.v, cm: p.cm, fco: null, cc: null });
+
+            var tbody = document.getElementById('tabla_datos').getElementsByTagName('tbody')[0];
+            var fila = tbody.insertRow();
+            fila.innerHTML = `<td>${p.v.toFixed(1)}</td><td>${p.cm}</td><td id="fco_${indice}" class="text-white-50">—</td><td id="kcc_${indice}" class="text-white-50">—</td>`;
+
+            document.getElementById('vol_display').innerText = "V_titulante: " + p.v.toFixed(1).replace('.', ',') + " mL";
+            document.getElementById('cond_display').innerText = "\u03BA: " + p.cm + " \u03BCS/cm";
+
+            if (indice === datosCrudos.length - 1) {
+                document.getElementById('btn_add').classList.add('d-none');
+                document.getElementById('btn_correct').classList.remove('d-none');
+                msg('f_step1', '💡 Datos crudos registrados. Solicitá el cálculo de corrección de <th>&kappa; para compensar el efecto de la dilución.', 'alert-warning');
+            }
+        }
+    }
+
+    function corregirDatos() {
+        document.getElementById('formula_dilucion').style.display = 'block';
+
+        for(let i=0; i<dataset.length; i++) {
+            var v_adicionado = dataset[i].v;
+            var fco = (100.0 + v_adicionado) / 100.0;
+            dataset[i].fco = fco;
+            document.getElementById(`fco_${i}`).innerText = fco.toFixed(3);
+            document.getElementById(`fco_${i}`).className = "text-warning fw-bold";
+
+            var cc = Math.round(dataset[i].cm * fco);
+            dataset[i].cc = cc;
+            document.getElementById(`kcc_${i}`).innerText = cc;
+            document.getElementById(`kcc_${i}`).className = "text-info fw-bold";
+        }
+        
+        document.getElementById('btn_correct').disabled = true;
+        document.getElementById('bloque_etapa2').classList.remove('step-disabled');
+        document.getElementById('bloque_etapa2').classList.add('step-active');
+        msg('f_step1', '✅ Corrección calculada con éxito. Procedé a configurar los ejes para realizar la gráfica de la curva.', 'alert-success');
+    }
+
+    function validarEjes() {
+        var x = document.getElementById('select_x').value;
+        var y = document.getElementById('select_y').value;
+        if (x === "vol" && y === "cc") {
+            msg('f_step2', '🏆 Correcto. Al graficar \u03BA_corr en función del V_titulante se obtienen tramos rectos lineales independientes y con diferente pendiente.', 'alert-success');
+            document.getElementById('bloque_etapa3').classList.remove('step-disabled');
+            document.getElementById('bloque_etapa3').classList.add('step-active');
+            initGrafico();
+        } else {
+            msg('f_step2', '❌ Configuración errónea. Si seleccionas al revés los ejes o si usás la conductividad medida sin corregir, la curva no será lineal por el efecto de la dilución impidiendo realizar la estimación del pto. de equivalencia.', 'alert-danger');
+        }
+    }
+
+    function initGrafico() {
+        var ctx = document.getElementById('graficoCanvas').getContext('2d');
+        if(miGrafico) miGrafico.destroy();
+
+        miGrafico = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Datos Experimentales (\u03BA_c)',
+                        data: dataset.map(d => ({x: d.v, y: d.cc})),
+                        backgroundColor: '#38bdf8',
+                        pointRadius: 5
+                    },
+                    {
+                        label: 'Línea de Tendencia 1',
+                        data: [],
+                        type: 'line',
+                        borderColor: '#22c55e',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: 'Línea de Tendencia 2',
+                        data: [],
+                        type: 'line',
+                        borderColor: '#ef4444',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { type: 'linear', min: 0, max: 15, title: { display: true, text: 'Volumen de NH₃ (mL)', font: {weight:'bold'} } },
+                    y: { type: 'linear', min: 0, max: 8000, title: { display: true, text: 'Conductividad Corregida \u03BA_c (\u03BCS/cm)', font: {weight:'bold'} } }
+                }
+            }
+        });
+        actualizarRectas();
+    }
+
+    function actualizarRectas() {
+        if (!miGrafico) return;
+
+        var m1 = parseFloat(document.getElementById('slide_m1').value);
+        var b1 = parseFloat(document.getElementById('slide_b1').value);
+        var m2 = parseFloat(document.getElementById('slide_m2').value);
+        var b2 = parseFloat(document.getElementById('slide_b2').value);
+
+        document.getElementById('val_m1').innerText = m1.toFixed(1);
+        document.getElementById('val_b1').innerText = b1.toFixed(0);
+        document.getElementById('val_m2').innerText = m2.toFixed(1);
+        document.getElementById('val_b2').innerText = b2.toFixed(0);
+
+        miGrafico.data.datasets[1].data = [{x: 0, y: b1}, {x: 15, y: m1 * 15 + b1}];
+        miGrafico.data.datasets[2].data = [{x: 0, y: b2}, {x: 15, y: m2 * 15 + b2}];
+        miGrafico.update();
+
+        v_interseccion = (b2 - b1) / (m1 - m2);
+
+        if (isFinite(v_interseccion) && v_interseccion >= 0 && v_interseccion <= 15) {
+            document.getElementById('interseccion_display').innerText = `V_pe = ${v_interseccion.toFixed(2).replace('.', ',')} mL`;
+            
+            // Ventana de equivalencia más chica y ajustada: 8.81 a 8.94 mL
+            if (v_interseccion >= 8.81 && v_interseccion <= 8.87) {
+                document.getElementById('bloque_etapa4').classList.remove('step-disabled');
+                document.getElementById('bloque_etapa4').classList.add('step-active');
+                
+                document.getElementById('formula_equivalencia').style.display = 'block';
+                document.getElementById('V_titulantease_calc').innerText = v_interseccion.toFixed(2).replace('.', ',') + " mL";
+                msg('f_step3', `✨ Ajuste de líneas correcto. El volumen determinado en la intersección es ${v_interseccion.toFixed(2).replace('.', ',')} mL.`, 'alert-success');
+            } else {
+                document.getElementById('bloque_etapa4').classList.add('step-disabled');
+                document.getElementById('formula_equivalencia').style.display = 'none';
+                document.getElementById('V_titulantease_calc').innerText = "?";
+                document.getElementById('f_step3').style.display = 'none';
+            }
+        } else {
+            document.getElementById('interseccion_display').innerText = "No intersecan";
+            document.getElementById('bloque_etapa4').classList.add('step-disabled');
+            document.getElementById('formula_equivalencia').style.display = 'none';
+            document.getElementById('V_titulantease_calc').innerText = "?";
+        }
+    }
+
+    function verificarCalculo() {
+        var rawInput = document.getElementById('input_n').value.trim();
+        var normalizedInput = rawInput.replace(',', '.');
+        var n = parseFloat(normalizedInput);
+
+        if (rawInput === "" || isNaN(n)) {
+            msg('f_step4', '⚠️ Por favor, ingresá una cifra válida para la Normalidad de la muestra.', 'alert-warning');
+            return;
+        }
+
+        // Expresión regular que busca al menos 4 decimales tras el punto o coma decimal
+        var regexDecimales = /[.,]\d{4,}/;
+        if (!regexDecimales.test(rawInput)) {
+            msg('f_step4', '⚠️ La concentración informada debe tener al menos 4 decimales.', 'alert-warning');
+            return;
+        }
+        
+        // Cálculo con alícuota de ácido corregida a 100.0 mL:
+        // N_ácido = (1.0115 N * V_interseccion) / 100.0 mL
+        var valorTeoricoEsperado = (1.0115 * v_interseccion) / 100.0; 
+
+        // Tolerancia analítica permitida para la cuenta matemática
+        if (Math.abs(n - valorTeoricoEsperado) <= 0.0001) {
+            msg('f_step4', `🏆 Resolución correcta. Concentración de la solución de ácido acético: ${n.toFixed(4).replace('.', ',')} N.`, 'alert-success');
+        } else {
+            msg('f_step4', `❌ La Normalidad informada difiere del valor esperado para tu volumen de ${v_interseccion.toFixed(2).replace('.', ',')} mL utilizando una alícuota de 100,0 mL.`, 'alert-danger');
+        }
+    }
+
+    function msg(id, txt, cls) {
+        var e = document.getElementById(id);
+        if(e) {
+            e.className = 'feedback-step alert ' + cls;
+            e.innerHTML = txt; e.style.display = 'block';
+        }
+    }
+
+    function reiniciarTodo() { location.reload(); }
+</script>
+</body>
+</html>
